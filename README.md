@@ -42,9 +42,7 @@ Pour partager un scénario : régler les paramètres, cliquer sur **« Copier le
 
 Outil **éducatif**, à visée pédagogique — ce n'est pas un conseil en investissement. Les rendements passés ne préjugent pas des rendements futurs ; un investissement en actions comporte un risque de perte en capital. La fiscalité est simplifiée et peut évoluer. Vérifiez votre situation auprès d'un professionnel.
 
-## Développement
 
-Le fichier `CLAUDE.md` documente l'historique des modifications et la suite de tests Node externe (régression numérique par « goldens », complétude de l'aide contextuelle, robustesse) utilisée pour valider chaque évolution.
 
 ## Licence
 
