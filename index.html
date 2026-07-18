@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur d'épargne ETF</title>
+<style>
+  :root{
+    --bg:#0f1226; --bg2:#151a35; --card:#1b2143; --card2:#222a52; --line:#2c3566;
+    --text:#eef1ff; --muted:#9aa3d0;
+    --indigo:#6366f1; --violet:#8b5cf6; --emerald:#10b981; --amber:#f59e0b; --rose:#f43f5e; --sky:#38bdf8;
+    --radius:18px; --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,.25), transparent 60%),
+      radial-gradient(1000px 600px at 100% 0%, rgba(16,185,129,.18), transparent 55%),
+      var(--bg);
+    color:var(--text); line-height:1.5; min-height:100vh;
+  }
+  a{color:var(--sky)}
+  .wrap{max-width:1240px;margin:0 auto;padding:28px 20px 60px}
+  header.top{display:flex;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  .logo{width:46px;height:46px;border-radius:14px;flex:none;background:linear-gradient(135deg,var(--indigo),var(--violet));display:grid;place-items:center;font-size:24px;box-shadow:var(--shadow)}
+  header.top h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.3px}
+  header.top p{margin:2px 0 0;color:var(--muted);font-size:13px}
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:22px;align-items:start}
+  @media(max-width:920px){.layout{grid-template-columns:1fr}}
+
+  .panel{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+  .panel.sticky{position:sticky;top:20px}
+  @media(max-width:920px){.panel.sticky{position:static}}
+  .panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 16px}
+  .subhead{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--violet);margin:20px 0 12px;padding-top:16px;border-top:1px solid var(--line);font-weight:700}
+
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+  .field .hint{font-size:11px;color:var(--muted);font-weight:400}
+  .field div.hint{margin:2px 0 8px}
+  .help-btn{display:inline-grid;place-items:center;width:16px;height:16px;margin-left:6px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--card2);color:var(--muted);font-size:10px;font-weight:800;line-height:1;cursor:pointer;vertical-align:middle}
+  .help-btn:hover,.help-btn[aria-expanded=true]{border-color:var(--indigo);color:#fff;background:linear-gradient(135deg,var(--indigo),var(--violet))}
+  .help-detail{display:none;margin:0 0 10px;padding:10px 12px;border-left:3px solid var(--indigo);border-radius:0 10px 10px 0;background:rgba(99,102,241,.10);font-size:12.5px;color:var(--muted);line-height:1.55}
+  .help-detail.open{display:block}
+  .help-detail b{color:var(--text)}
+  .inputwrap{position:relative;display:flex;align-items:center}
+  .inputwrap .suffix{position:absolute;right:12px;color:var(--muted);font-size:13px;pointer-events:none}
+  input[type=number],select{width:100%;padding:11px 40px 11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px;font-weight:600;outline:none;transition:border-color .15s, box-shadow .15s}
+  select{padding-right:12px;cursor:pointer}
+  input:focus,select:focus{border-color:var(--indigo);box-shadow:0 0 0 3px rgba(99,102,241,.25)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  .field label.switch,.switch{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;font-size:13px;font-weight:600;margin-bottom:0}
+  .switch input{display:none}
+  .track{display:inline-block;width:42px;height:24px;border-radius:20px;background:var(--line);position:relative;transition:background .2s;flex:none}
+  .track::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
+  .switch input:checked + .track{background:linear-gradient(135deg,var(--indigo),var(--violet))}
+  .switch input:checked + .track::after{transform:translateX(18px)}
+
+  .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:8px 6px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+  .seg button.active{background:linear-gradient(135deg,var(--indigo),var(--violet));color:#fff}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px}
+  .kpi{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 14px;position:relative;overflow:hidden}
+  .kpi .k-label{font-size:12px;color:var(--muted);font-weight:600}
+  .kpi .k-val{font-size:23px;font-weight:800;margin-top:6px;letter-spacing:-.5px}
+  .kpi .k-sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .kpi .bar{position:absolute;left:0;top:0;bottom:0;width:4px}
+  .kpi.final .bar{background:linear-gradient(var(--indigo),var(--violet))}
+  .kpi.contrib .bar{background:var(--sky)}
+  .kpi.gains .bar{background:var(--emerald)}
+  .kpi.tax .bar{background:var(--rose)}
+  .kpi.real .bar{background:var(--amber)}
+  .kpi.legacy .bar{background:linear-gradient(var(--violet),var(--sky))}
+  .kpi.final .k-val{color:#fff}
+  .kpi.gains .k-val{color:var(--emerald)}
+  .kpi.tax .k-val{color:var(--rose)}
+  .kpi.real .k-val{color:var(--amber)}
+  .kpi.legacy .k-val{color:#c4b5fd}
+
+  section.block{margin-bottom:22px}
+  .block-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+  .block-head h3{margin:0;font-size:16px;font-weight:800}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+  .chart-card{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);position:relative}
+  canvas{width:100%;display:block}
+  #tooltip{position:absolute;pointer-events:none;background:#0b0e20;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;opacity:0;transition:opacity .1s;box-shadow:var(--shadow);white-space:nowrap;z-index:5}
+  #tooltip b{color:#fff}
+
+  .advice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .advice{border:1px solid var(--line);border-radius:14px;padding:14px 14px 14px 44px;position:relative;background:var(--card);font-size:13.5px}
+  .advice .ico{position:absolute;left:12px;top:13px;font-size:18px}
+  .advice b{color:#fff}
+  .advice.good{border-color:rgba(16,185,129,.5);background:linear-gradient(180deg,rgba(16,185,129,.10),transparent)}
+  .advice.info{border-color:rgba(56,189,248,.45);background:linear-gradient(180deg,rgba(56,189,248,.10),transparent)}
+  .advice.warn{border-color:rgba(245,158,11,.5);background:linear-gradient(180deg,rgba(245,158,11,.12),transparent)}
+  .advice.reco{border-color:rgba(139,92,246,.6);background:linear-gradient(180deg,rgba(139,92,246,.16),transparent)}
+
+  .table-card{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  details summary{cursor:pointer;padding:16px 18px;font-weight:800;font-size:15px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+  details summary::-webkit-details-marker{display:none}
+  details summary::after{content:"▾";color:var(--muted);transition:transform .2s}
+  details[open] summary::after{transform:rotate(180deg)}
+  .intro-card{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
+  .intro-body{padding:2px 18px 16px;color:var(--muted);font-size:13.5px;line-height:1.6}
+  .intro-body p{margin:10px 0}
+  .intro-body b{color:var(--text)}
+  .intro-body .advice-grid{margin:12px 0}
+  .intro-note{font-size:11.5px;font-style:italic;margin-bottom:0}
+  .table-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 14px;text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--muted);font-weight:600;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg2)}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
+  tbody tr.ret{background:rgba(245,158,11,.06)}
+  td.pos{color:var(--emerald);font-weight:600}
+  td.neg{color:var(--amber);font-weight:600}
+  .phasetag{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+
+  .disclaimer{margin-top:26px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.6}
+  .footer{margin:10px 0 6px;text-align:center;font-size:11.5px;color:var(--muted)}
+  .toolbar{display:flex;gap:10px;margin-top:16px}
+  .btn{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:10px;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--indigo)}
+  .btn.primary{background:linear-gradient(135deg,var(--indigo),var(--violet));border:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">📈</div>
+    <div>
+      <h1>Simulateur d'épargne ETF</h1>
+      <p>Accumulation & rente · intérêts composés · frais, inflation & fiscalité française</p>
+    </div>
+  </header>
+
+  <details class="intro-card" open>
+    <summary>À quoi sert ce simulateur ?</summary>
+    <div class="intro-body">
+      <p><b>En une phrase</b> : il te montre ce que peut devenir ton épargne placée en ETF — combien tu accumules d'ici la retraite, et quelle rente mensuelle tu pourras en tirer ensuite.</p>
+      <p><b>Un ETF, c'est quoi ?</b> Un placement tout-en-un qui réplique un panier de centaines d'actions (par exemple les grandes entreprises du monde entier), avec des frais très faibles. C'est la façon la plus simple d'investir en Bourse sans choisir des actions une par une — on l'achète via un PEA, une assurance-vie ou un CTO, et ce simulateur compare justement l'impôt de chacun.</p>
+      <div class="advice-grid">
+        <div class="advice good"><span class="ico">📈</span><b>La puissance des intérêts composés</b><br>Les gains font des gains : sur 25-30 ans, ils dépassent souvent tes versements.</div>
+        <div class="advice warn"><span class="ico">💸</span><b>Ce que coûtent frais, inflation et impôts</b><br>Et comment la bonne enveloppe (PEA, assurance-vie) préserve ton capital.</div>
+        <div class="advice info"><span class="ico">🏖️</span><b>Ta future rente</b><br>Combien ton capital peut te verser chaque mois à la retraite, et jusqu'à quel âge.</div>
+      </div>
+      <p><b>Mode d'emploi</b> : règle les paramètres dans le panneau de gauche — chaque champ a un « ? » qui l'explique simplement — et regarde les résultats se mettre à jour en direct. Le meilleur apprentissage : change un chiffre et observe l'effet.</p>
+      <p class="intro-note">Outil pédagogique, pas un conseil en investissement (voir l'avertissement en bas de page).</p>
+    </div>
+  </details>
+
+  <div class="layout">
+    <!-- ============ FORM ============ -->
+    <aside class="panel sticky">
+      <h2>Paramètres</h2>
+
+      <div class="field">
+        <label>Capital initial <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-initial" aria-label="Aide : capital initial">?</button></label>
+        <div class="hint">L'argent que tu investis dès aujourd'hui.</div>
+        <div class="inputwrap"><input type="number" id="initial" value="5000" min="0" step="500"><span class="suffix">€</span></div>
+        <div class="help-detail" id="help-initial">C'est le point de départ de ton placement. Il fructifie le plus longtemps, donc il pèse lourd grâce aux intérêts composés. Pas de capital de départ ? Mets 0 : les versements réguliers suffisent. <b>Exemple :</b> 5 000 € placés à 7 % deviennent ~27 000 € en 25 ans, sans rien ajouter.</div>
+      </div>
+
+      <div class="field">
+        <label>Versement <span id="freqLabel" class="hint">mensuel</span> <span id="objBadge" class="hint" style="color:var(--violet);font-weight:700"></span> <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-contribution" aria-label="Aide : versement">?</button></label>
+        <div class="hint">Ce que tu ajoutes à chaque versement.</div>
+        <div class="inputwrap"><input type="number" id="contribution" value="300" min="0" step="50"><span class="suffix">€</span></div>
+        <div class="help-detail" id="help-contribution">C'est ton effort d'épargne régulier, le moteur principal du capital au début. Même un petit montant fait une grande différence sur longue période. <b>Exemple :</b> 300 € par mois pendant 25 ans = 90 000 € versés, qui deviennent ~235 000 € à 7 %.</div>
+      </div>
+
+      <div class="field">
+        <label class="switch"><input type="checkbox" id="objInv"><span class="track"></span>🎯 Objectif inversé (calculer le versement) <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-objInv" aria-label="Aide : objectif inversé">?</button></label>
+        <div class="hint">Part du but à atteindre pour calculer le versement.</div>
+        <div class="help-detail" id="help-objInv">Au lieu de te demander « combien aurai-je ? », demande « combien dois-je verser ? ». Définis un capital ou une rente cible : le simulateur calcule le versement nécessaire et remplit le champ pour toi (il devient grisé). Désactive l'interrupteur pour revenir à la saisie manuelle.</div>
+      </div>
+      <div id="objSection" style="display:none">
+        <div class="field">
+          <label>Je veux atteindre <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-objType" aria-label="Aide : type d'objectif">?</button></label>
+          <div class="hint">Un capital d'un coup, ou un revenu régulier ?</div>
+          <select id="objType">
+            <option value="capital">Un capital à la retraite</option>
+            <option value="rente">Une rente nette / mois</option>
+          </select>
+          <div class="help-detail" id="help-objType"><b>Capital</b> : une somme disponible au départ à la retraite (ex. 500 000 €). <b>Rente</b> : un revenu net versé chaque mois pendant la retraite (ex. 2 000 €/mois) — nécessite d'activer la phase de rente plus bas.</div>
+        </div>
+        <div class="field">
+          <label id="objLabel"><span id="objLabelText">Capital cible</span> <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-objTarget" aria-label="Aide : montant de l'objectif">?</button></label>
+          <div class="hint">Le montant de ton objectif.</div>
+          <div class="inputwrap"><input type="number" id="objTarget" value="500000" min="0" step="10000"><span class="suffix">€</span></div>
+          <div class="help-detail" id="help-objTarget">Fixe le but : capital souhaité à la retraite, ou rente mensuelle nette désirée. Le simulateur calcule le versement qui l'atteint avec tes hypothèses (rendement, durée, fiscalité). Si le versement calculé semble énorme, l'objectif est trop ambitieux pour ces hypothèses — ajuste l'un des paramètres.</div>
+        </div>
+        <div id="objHint" class="hint" style="display:none;color:var(--amber);margin:-6px 0 12px">⚠️ Active la phase de rente ci-dessous pour viser une rente.</div>
+      </div>
+
+      <div class="field">
+        <label>Fréquence des versements <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-freqSeg" aria-label="Aide : fréquence des versements">?</button></label>
+        <div class="hint">À quel rythme tu verses : mois, trimestre ou an.</div>
+        <div class="seg" id="freqSeg">
+          <button data-freq="monthly" class="active">Mensuel</button>
+          <button data-freq="quarterly">Trimestriel</button>
+          <button data-freq="annual">Annuel</button>
+        </div>
+        <div class="help-detail" id="help-freqSeg">Le montant saisi correspond à <b>chaque</b> versement : 300 € « mensuel » = 3 600 €/an, mais 300 € « trimestriel » = 1 200 €/an. À effort égal, verser plus tôt et plus souvent est légèrement meilleur : l'argent reste investi plus longtemps.</div>
+      </div>
+
+      <div class="field">
+        <label class="switch"><input type="checkbox" id="indexContrib"><span class="track"></span>Indexer les versements sur l'inflation <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-indexContrib" aria-label="Aide : indexation des versements">?</button></label>
+        <div class="hint">Augmenter automatiquement tes versements chaque année.</div>
+        <div class="help-detail" id="help-indexContrib">Tes versements suivent l'inflation, comme un salaire revalorisé : ton effort reste constant en pouvoir d'achat et le capital final garde sa valeur réelle. Conseillé sur longue période. <b>Exemple :</b> avec 2 % d'inflation, un versement de 300 € devient ~303 € la 2ᵉ année, ~480 € la 25ᵉ.</div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Âge actuel <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-ageNow" aria-label="Aide : âge actuel">?</button></label>
+          <div class="hint">Ton âge aujourd'hui, point de départ de la simulation.</div>
+          <div class="inputwrap"><input type="number" id="ageNow" value="40" min="0" max="90" step="1"><span class="suffix">ans</span></div>
+          <div class="help-detail" id="help-ageNow">Plus tu commences tôt, plus les intérêts composés travaillent pour toi : à 7 %/an, 1 000 € placés à 30 ans valent ~7 600 € à 60 ans, contre ~3 900 € si placés à 40 ans. Chaque année de délai coûte cher.</div>
+        </div>
+        <div class="field">
+          <label>Départ retraite <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-ageRetire" aria-label="Aide : départ retraite">?</button></label>
+          <div class="hint">L'âge où tu arrêtes de verser (et peux commencer à retirer).</div>
+          <div class="inputwrap"><input type="number" id="ageRetire" value="65" min="1" max="95" step="1"><span class="suffix">ans</span></div>
+          <div class="help-detail" id="help-ageRetire">Il fixe la durée d'accumulation : de 40 à 65 ans = 25 ans de versements. Partir plus tard a un double effet puissant : tu verses plus longtemps ET ton capital fructifie plus longtemps.</div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Rendement <span class="hint">brut</span> <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-return" aria-label="Aide : rendement">?</button></label>
+          <div class="hint">Ce que ton placement gagne chaque année, avant frais.</div>
+          <div class="inputwrap"><input type="number" id="return" value="7" step="0.5"><span class="suffix">%</span></div>
+          <div class="help-detail" id="help-return">C'est la performance annuelle moyenne espérée. Repère : les actions mondiales ont rapporté ~7-8 %/an en moyenne sur longue période, avec de fortes variations (années à -20 % comme à +25 %). <b>Exemple :</b> 1 000 € à 7 % → ~1 967 € en 10 ans. Reste plutôt prudent.</div>
+        </div>
+        <div class="field">
+          <label>Inflation <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-inflation" aria-label="Aide : inflation">?</button></label>
+          <div class="hint">La hausse des prix, qui rogne ton pouvoir d'achat.</div>
+          <div class="inputwrap"><input type="number" id="inflation" value="2" step="0.1" min="0"><span class="suffix">%</span></div>
+          <div class="help-detail" id="help-inflation">Avec 2 % d'inflation, 100 € d'aujourd'hui ne « vaudront » plus que ~55 € dans 30 ans. C'est pourquoi le simulateur affiche une valeur réelle en euros d'aujourd'hui. La Banque centrale européenne vise ~2 %/an.</div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Frais ETF <span class="hint">TER</span> <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-ter" aria-label="Aide : frais ETF">?</button></label>
+          <div class="hint">Les frais annuels prélevés par le fonds.</div>
+          <div class="inputwrap"><input type="number" id="ter" value="0.20" step="0.05" min="0"><span class="suffix">%</span></div>
+          <div class="help-detail" id="help-ter">Le TER (Total Expense Ratio) rémunère le gérant de l'ETF ; il est déduit automatiquement de la performance, tu ne le vois jamais. Un bon ETF indiciel large coûte 0,15-0,30 %/an. <b>Exemple :</b> 0,20 % sur 10 000 € = 20 €/an. Sur 25 ans, 1 % de frais en plus ampute le capital final de ~20 %.</div>
+        </div>
+        <div class="field">
+          <label>Frais enveloppe <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-envfee" aria-label="Aide : frais d'enveloppe">?</button></label>
+          <div class="hint">Les frais annuels du contrat (surtout en assurance-vie).</div>
+          <div class="inputwrap"><input type="number" id="envfee" value="0" step="0.1" min="0"><span class="suffix">%</span></div>
+          <div class="help-detail" id="help-envfee">Ils s'ajoutent au TER de l'ETF. Fréquents en assurance-vie classique (0,5-1 %/an, moins sur les contrats en ligne), généralement nuls sur un bon PEA ou CTO en ligne. <b>Exemple :</b> TER 0,20 % + frais 0,60 % = 0,80 % prélevés chaque année sur ton encours.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Enveloppe fiscale <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-envelope" aria-label="Aide : enveloppe fiscale">?</button></label>
+        <div class="hint">Le « contenant » de ton placement, qui fixe l'impôt.</div>
+        <select id="envelope">
+          <option value="none">Aucune</option>
+          <option value="pea" selected>PEA</option>
+          <option value="av">Assurance-vie</option>
+          <option value="cto">CTO (flat tax)</option>
+        </select>
+        <div class="help-detail" id="help-envelope">À ETF identique, le net varie beaucoup selon l'enveloppe. <b>PEA</b> : après 5 ans, gains exonérés d'impôt (restent 17,2 % de prélèvements sociaux) ; plafond 150 000 €. <b>Assurance-vie</b> : après 8 ans, 4 600 € de gains/an exonérés puis ~24,7 %. <b>CTO</b> : 30 % sur les gains, sans limite. « Aucune » ignore la fiscalité.</div>
+      </div>
+
+      <div class="field" style="margin-top:6px">
+        <label class="switch"><input type="checkbox" id="compareMode"><span class="track"></span>Comparer 3 scénarios de rendement <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-compareMode" aria-label="Aide : comparaison de scénarios">?</button></label>
+        <div class="hint">Voir l'effet d'un rendement meilleur ou pire que prévu.</div>
+        <div class="help-detail" id="help-compareMode">Le rendement futur est inconnu : ce mode trace trois trajectoires — pessimiste, centrale, optimiste — pour visualiser l'éventail des résultats possibles. Plus l'horizon est long, plus l'éventail s'élargit : c'est l'incertitude normale de l'investissement.</div>
+      </div>
+      <div id="scenarioInputs" style="display:none">
+        <div class="row2">
+          <div class="field">
+            <label>Pessimiste <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-rPess" aria-label="Aide : scénario pessimiste">?</button></label>
+            <div class="hint">L'hypothèse basse, si les marchés déçoivent.</div>
+            <div class="inputwrap"><input type="number" id="rPess" value="4" step="0.5"><span class="suffix">%</span></div>
+            <div class="help-detail" id="help-rPess">Sert à tester la solidité de ton plan : si même le scénario pessimiste te convient, tu peux épargner sereinement. Une mauvaise décennie boursière peut donner ~3-5 %/an. Valeur par défaut : 4 %.</div>
+          </div>
+          <div class="field">
+            <label>Optimiste <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-rOpt" aria-label="Aide : scénario optimiste">?</button></label>
+            <div class="hint">L'hypothèse haute, si les marchés sont généreux.</div>
+            <div class="inputwrap"><input type="number" id="rOpt" value="10" step="0.5"><span class="suffix">%</span></div>
+            <div class="help-detail" id="help-rOpt">Montre le potentiel haussier, sans garantie : les actions mondiales ont parfois dépassé 10 %/an sur de longues périodes. Valeur par défaut : 10 %. Ne construis pas ton plan dessus : c'est un bonus éventuel, pas une promesse.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RENTE ===== -->
+      <div class="subhead">🏖️ Phase de rente</div>
+      <div class="field">
+        <label class="switch"><input type="checkbox" id="renteOn"><span class="track"></span>Simuler la retraite (décumulation) <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-renteOn" aria-label="Aide : simulation de la retraite">?</button></label>
+        <div class="hint">Ajoute la phase où tu retires ton épargne.</div>
+        <div class="help-detail" id="help-renteOn">Une vie d'épargne a deux phases : l'<b>accumulation</b> (tu verses) puis la <b>décumulation</b> (tu retires une rente). Active cet interrupteur pour voir combien ton capital peut te verser chaque mois, jusqu'à quel âge, et ce qu'il resterait à transmettre.</div>
+      </div>
+
+      <div id="renteSection" style="display:none">
+        <div class="row2">
+          <div class="field">
+            <label>Rendement retraite <span class="hint">prudent</span> <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-retReturn" aria-label="Aide : rendement à la retraite">?</button></label>
+            <div class="hint">Le rendement pendant la retraite, en général plus prudent.</div>
+            <div class="inputwrap"><input type="number" id="retReturn" value="4" step="0.5"><span class="suffix">%</span></div>
+            <div class="help-detail" id="help-retReturn">En phase de retrait, on sécurise souvent une partie du capital (moins d'actions, plus d'obligations) : le rendement baisse, typiquement 3-4 %. Viser davantage implique de rester fortement en actions, donc d'accepter qu'un krach en début de retraite ampute durablement la rente.</div>
+          </div>
+          <div class="field">
+            <label>Espérance de vie <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-lifeExp" aria-label="Aide : espérance de vie">?</button></label>
+            <div class="hint">Jusqu'à quel âge ton épargne doit tenir.</div>
+            <div class="inputwrap"><input type="number" id="lifeExp" value="95" min="2" max="110" step="1"><span class="suffix">ans</span></div>
+            <div class="help-detail" id="help-lifeExp">La rente est calibrée pour durer jusqu'à cet âge. Mieux vaut viser large : en France, à 65 ans, il reste en moyenne ~20 ans à vivre pour un homme et ~24 pour une femme — et environ un retraité sur quatre dépasse 90 ans. Prévoir 95 ans évite les mauvaises surprises.</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Mode de rente <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-retModeSeg" aria-label="Aide : mode de rente">?</button></label>
+          <div class="hint">Comment est calculée ta rente mensuelle.</div>
+          <div class="seg" id="retModeSeg">
+            <button data-mode="target" class="active">Tout consommer</button>
+            <button data-mode="fixed">Rente fixe</button>
+            <button data-mode="rate">Règle 4 %</button>
+          </div>
+          <div class="help-detail" id="help-retModeSeg"><b>Tout consommer</b> : la rente maximale, calculée pour épuiser le capital exactement à ton espérance de vie — il ne reste rien à transmettre (idéal sans héritier, mais aucune marge si tu vis plus vieux). <b>Rente fixe</b> : tu imposes un montant, le simulateur dit jusqu'à quel âge il tient. <b>Règle 4 %</b> : retirer ~4 % du capital par an, règle réputée soutenable ~30 ans — vise plutôt à préserver le capital, donc à le transmettre.</div>
+        </div>
+
+        <div class="field" id="fixedField" style="display:none">
+          <label>Rente mensuelle <span class="hint">retrait brut</span> <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-retFixed" aria-label="Aide : rente fixe">?</button></label>
+          <div class="hint">Le montant brut retiré chaque mois.</div>
+          <div class="inputwrap"><input type="number" id="retFixed" value="2000" min="0" step="100"><span class="suffix">€</span></div>
+          <div class="help-detail" id="help-retFixed">C'est ta « paye » de retraité, avant impôt sur les plus-values. Si elle est trop élevée pour le capital, le simulateur montre à quel âge il s'épuise. Repère : la règle des 4 % suggère ~1 670 €/mois pour 500 000 € de capital.</div>
+        </div>
+        <div class="field" id="rateField" style="display:none">
+          <label>Taux de retrait annuel <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-retRate" aria-label="Aide : taux de retrait">?</button></label>
+          <div class="hint">Le pourcentage du capital retiré chaque année.</div>
+          <div class="inputwrap"><input type="number" id="retRate" value="4" step="0.25" min="0"><span class="suffix">%</span></div>
+          <div class="help-detail" id="help-retRate">C'est la fameuse « règle des 4 % » : d'après l'histoire boursière, retirer 4 % du capital initial puis indexer sur l'inflation a survécu à toutes les périodes de 30 ans passées. Au-delà de 5-6 %, le risque d'épuisement du capital monte vite.</div>
+        </div>
+
+        <div class="field">
+          <label class="switch"><input type="checkbox" id="indexRente" checked><span class="track"></span>Indexer la rente sur l'inflation <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-indexRente" aria-label="Aide : indexation de la rente">?</button></label>
+          <div class="hint">Augmenter la rente chaque année pour suivre les prix.</div>
+          <div class="help-detail" id="help-indexRente">Sans indexation, une rente de 2 000 € ne vaudra plus que ~1 220 € de pouvoir d'achat dans 25 ans (à 2 % d'inflation). Avec, la rente suit les prix — mais les retraits augmentent, donc le capital s'épuise plus vite.</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn" id="resetBtn">Réinitialiser</button>
+        <button class="btn primary" id="shareBtn">Copier le lien</button>
+      </div>
+    </aside>
+
+    <!-- ============ RESULTS ============ -->
+    <main>
+      <div class="kpis" id="kpis"></div>
+
+      <section class="block">
+        <div class="block-head">
+          <h3 id="chartTitle">Évolution du portefeuille</h3>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="chart-card">
+          <canvas id="chart" height="360"></canvas>
+          <div id="tooltip"></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h3>💡 Conseils personnalisés</h3></div>
+        <div class="advice-grid" id="advice"></div>
+      </section>
+
+      <section class="block">
+        <div class="table-card">
+          <details>
+            <summary>Détail année par année</summary>
+            <div class="table-scroll">
+              <table id="table">
+                <thead><tr>
+                  <th>Âge</th><th>Flux annuel</th><th>Plus-values</th><th>Valeur</th><th>Valeur réelle</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <p class="disclaimer">
+        ⚠️ Outil éducatif à visée pédagogique — <b>ce n'est pas un conseil en investissement</b>. Les rendements passés ne préjugent pas des rendements futurs ; un investissement en actions comporte un risque de perte en capital. La fiscalité (y compris l'imposition des retraits) est simplifiée et peut évoluer. Vérifiez votre situation auprès d'un professionnel.
+      </p>
+    </main>
+  </div>
+
+  <footer class="footer">© 2026 Stéphane Dorlac — Licence MIT</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const eur = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);
+  const pct = n => new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1}).format(n)+' %';
+  const shortEur = v => {
+    const a=Math.abs(v);
+    if(a>=1e6) return (v/1e6).toFixed(a>=1e7?0:1).replace('.',',')+' M€';
+    if(a>=1e3) return Math.round(v/1e3)+' k€';
+    return Math.round(v)+' €';
+  };
+  // clamp la base pour éviter NaN avec des taux <= -100 % (ex. saisie -150 %)
+  const monthlyRate=a=>Math.pow(Math.max(1e-6,1+a),1/12)-1;
+  const freqMonths={monthly:1,quarterly:3,annual:12};
+  const freqNames={monthly:'mensuel',quarterly:'trimestriel',annual:'annuel'};
+  const ENV={none:{name:'Aucune'},pea:{name:'PEA'},av:{name:'Assurance-vie'},cto:{name:'CTO'}};
+
+  let state={freq:'monthly',retMode:'target'};
+
+  function readParams(){
+    const ageNow=Math.round(+$('ageNow').value||0);
+    const ageRetire=Math.max(ageNow+1, Math.round(+$('ageRetire').value||ageNow+1));
+    const lifeExp=Math.max(ageRetire+1, Math.round(+$('lifeExp').value||ageRetire+1));
+    return {
+      initial:+$('initial').value||0,
+      contribution:+$('contribution').value||0,
+      freq:state.freq,
+      indexContrib:$('indexContrib').checked,
+      annualReturn:(+$('return').value||0)/100,
+      inflation:(+$('inflation').value||0)/100,
+      ter:(+$('ter').value||0)/100,
+      envfee:(+$('envfee').value||0)/100,
+      envelope:$('envelope').value,
+      ageNow, ageRetire, lifeExp,
+      accumYears:ageRetire-ageNow,
+      retYears:lifeExp-ageRetire,
+      compare:$('compareMode').checked,
+      rPess:(+$('rPess').value||0)/100,
+      rOpt:(+$('rOpt').value||0)/100,
+      renteOn:$('renteOn').checked,
+      retMode:state.retMode,
+      retReturn:(+$('retReturn').value||0)/100,
+      retFixed:+$('retFixed').value||0,
+      retRate:(+$('retRate').value||0)/100,
+      indexRente:$('indexRente').checked,
+    };
+  }
+
+  // ---------- accumulation (monthly) ----------
+  function simulate(p, grossReturn){
+    const netAnnual=grossReturn-p.ter-p.envfee;
+    const mRate=monthlyRate(netAnnual);
+    const grossMRate=monthlyRate(grossReturn);
+    const every=freqMonths[p.freq];
+    const months=p.accumYears*12;
+    let bal=p.initial, balNoFee=p.initial, contributed=p.initial;
+    const rows=[{year:0, age:p.ageNow, contributed, balance:bal, gains:0, feeCost:0}];
+    for(let m=1;m<=months;m++){
+      bal*=(1+mRate); balNoFee*=(1+grossMRate);
+      if(m%every===0){
+        const yIdx=Math.floor((m-1)/12);
+        const c=p.contribution*(p.indexContrib?Math.pow(1+p.inflation,yIdx):1);
+        bal+=c; balNoFee+=c; contributed+=c;
+      }
+      if(m%12===0) rows.push({year:m/12, age:p.ageNow+m/12, contributed, balance:bal, gains:bal-contributed, feeCost:balNoFee-bal});
+    }
+    return {rows, final:bal, contributed, gains:bal-contributed, feeCost:balNoFee-bal};
+  }
+
+  // ---------- lump-sum exit tax (no rente) ----------
+  function taxOnGains(gains, envelope, years){
+    if(gains<=0||envelope==='none') return 0;
+    if(envelope==='cto') return gains*0.30;
+    if(envelope==='pea') return years>=5?gains*0.172:gains*0.30;
+    if(envelope==='av') return years>=8?Math.max(0,gains-4600)*(0.075+0.172):gains*0.30;
+    return 0;
+  }
+  function taxRateLabel(envelope, years){
+    if(envelope==='none') return '0 %';
+    if(envelope==='cto') return '30 %';
+    if(envelope==='pea') return years>=5?'17,2 %':'30 % (< 5 ans)';
+    if(envelope==='av') return years>=8?'~24,7 %':'30 % (< 8 ans)';
+  }
+
+  // ---------- retirement (decumulation) ----------
+  // capital depletion depends only on gross withdrawal (tax is paid from it)
+  function retireFinal(start, p, W0){
+    const mRate=monthlyRate(p.retReturn-p.ter-p.envfee);
+    const months=p.retYears*12;
+    let bal=start;
+    for(let m=1;m<=months;m++){
+      bal*=(1+mRate);
+      const infl=p.indexRente?Math.pow(1+p.inflation,Math.floor((m-1)/12)):1;
+      bal-=W0*infl;
+    }
+    return bal;
+  }
+  function solveSustainable(start, p){
+    let lo=0, hi=start;
+    for(let i=0;i<80;i++){ const mid=(lo+hi)/2; if(retireFinal(start,p,mid)>0) lo=mid; else hi=mid; }
+    return lo;
+  }
+  function runRetirement(start, startBasis, p, W0){
+    const mRate=monthlyRate(p.retReturn-p.ter-p.envfee);
+    const months=p.retYears*12;
+    let bal=start, basis=startBasis;
+    let depletionAge=null, yearGain=0, yearGross=0, yearNet=0, cumulNet=0;
+    const rows=[{age:p.ageRetire, balance:start, gains:Math.max(0,start-startBasis), renteGross:0, renteNet:0, cumulNet:0}];
+    for(let m=1;m<=months;m++){
+      bal*=(1+mRate);
+      const infl=p.indexRente?Math.pow(1+p.inflation,Math.floor((m-1)/12)):1;
+      let W=W0*infl; if(W>bal) W=Math.max(0,bal);
+      const gainFrac= bal>0?Math.max(0,(bal-basis))/bal:0;
+      const gainPart=W*gainFrac, basisPart=W-gainPart;
+      let tax=0;
+      if(W>0 && p.envelope!=='none'){
+        if(p.envelope==='cto') tax=gainPart*0.30;
+        else if(p.envelope==='pea') tax=(p.accumYears>=5?0.172:0.30)*gainPart;
+        else if(p.envelope==='av'){
+          const abattLeft=Math.max(0,4600-yearGain);
+          tax=(p.accumYears>=8?(0.075+0.172):0.30)*Math.max(0,gainPart-abattLeft);
+        }
+      }
+      yearGain+=gainPart;
+      bal-=W; basis=Math.max(0,basis-basisPart);
+      const net=W-tax; cumulNet+=net; yearGross+=W; yearNet+=net;
+      if(bal<=0.01 && depletionAge===null) depletionAge=p.ageRetire+m/12;
+      if(m%12===0){
+        rows.push({age:p.ageRetire+m/12, balance:Math.max(0,bal), gains:Math.max(0,bal-basis), renteGross:yearGross, renteNet:yearNet, cumulNet});
+        yearGain=0; yearGross=0; yearNet=0;
+      }
+    }
+    const fy=rows[1]||{renteGross:0,renteNet:0};
+    return {rows, depletionAge, residual:Math.max(0,bal), start, W0,
+            firstMonthGross:W0, firstYearGross:fy.renteGross, firstYearNet:fy.renteNet, cumulNet};
+  }
+
+  // ---------- inverse objective (solve for the contribution) ----------
+  function accumFinalFor(p, X){ return simulate({...p, contribution:X}, p.annualReturn).final; }
+  function renteNetMonthFor(p, X){
+    const acc=simulate({...p, contribution:X}, p.annualReturn);
+    if(p.retYears<=0) return 0;
+    const W0=solveSustainable(acc.final, p); // sustainable rente until life expectancy
+    return runRetirement(acc.final, acc.contributed, p, W0).firstYearNet/12;
+  }
+  function computeRequired(p, objType, target){
+    const f = objType==='rente' ? X=>renteNetMonthFor(p,X) : X=>accumFinalFor(p,X);
+    if(target<=0 || f(0)>=target) return 0;
+    let hi=100; while(f(hi)<target && hi<5e6) hi*=2;
+    let lo=0;
+    for(let i=0;i<60;i++){ const mid=(lo+hi)/2; if(f(mid)<target) lo=mid; else hi=mid; }
+    return hi;
+  }
+
+  // ============ RENDER ============
+  let chartData=null;
+
+  function render(){
+    const p=readParams();
+    $('freqLabel').textContent=freqNames[p.freq];
+    $('scenarioInputs').style.display=p.compare?'block':'none';
+    $('renteSection').style.display=p.renteOn?'block':'none';
+    $('fixedField').style.display=(p.renteOn&&p.retMode==='fixed')?'block':'none';
+    $('rateField').style.display=(p.renteOn&&p.retMode==='rate')?'block':'none';
+
+    // inverse objective: the contribution becomes the computed answer
+    const objInv=$('objInv').checked;
+    const objType=$('objType').value;
+    $('objSection').style.display=objInv?'block':'none';
+    $('objLabelText').textContent=objType==='rente'?'Rente nette cible / mois':'Capital cible à la retraite';
+    let objInfo=null;
+    const cField=$('contribution');
+    if(objInv){
+      const target=+$('objTarget').value||0;
+      const needRente=objType==='rente'&&!p.renteOn;
+      $('objHint').style.display=needRente?'block':'none';
+      if(needRente){
+        cField.readOnly=false; cField.style.opacity=1; $('objBadge').textContent='';
+      }else{
+        const searchP=objType==='rente'?{...p,retMode:'target'}:p;
+        const req=computeRequired(searchP, objType, target);
+        p.contribution=req;
+        cField.value=Math.round(req); cField.readOnly=true; cField.style.opacity=.65;
+        $('objBadge').textContent='🎯 calculé';
+        objInfo={objType,target,req};
+      }
+    }else{
+      cField.readOnly=false; cField.style.opacity=1; $('objBadge').textContent='';
+    }
+
+    const accum=simulate(p, p.annualReturn);
+    let retire=null;
+    if(p.renteOn && p.retYears>0){
+      const W0 = p.retMode==='fixed' ? p.retFixed
+               : p.retMode==='rate'  ? p.retRate*accum.final/12
+               : solveSustainable(accum.final, p);
+      retire=runRetirement(accum.final, accum.contributed, p, W0);
+    }
+    const timeline=buildTimeline(p, accum, retire);
+
+    renderKPIs(p, accum, retire);
+    renderChart(p, accum, retire, timeline);
+    renderAdvice(p, accum, retire, objInfo);
+    renderTable(p, timeline);
+    syncURL(p);
+  }
+
+  function contribAnnual(p, year){ // approx annual inflow during accumulation
+    if(year===0) return p.initial;
+    const per=12/freqMonths[p.freq];
+    return p.contribution*per*(p.indexContrib?Math.pow(1+p.inflation,year-1):1);
+  }
+
+  function buildTimeline(p, accum, retire){
+    const tl=accum.rows.map(r=>({
+      age:r.age, phase:'accum', balance:r.balance, contributed:r.contributed,
+      gains:r.gains, feeCost:r.feeCost, flow:contribAnnual(p, r.year)
+    }));
+    if(retire){
+      retire.rows.forEach((r,i)=>{ if(i===0) return;
+        tl.push({age:r.age, phase:'ret', balance:r.balance, gains:r.gains, flow:-r.renteNet});
+      });
+    }
+    return tl;
+  }
+
+  // ---------- KPIs ----------
+  function renderKPIs(p, accum, retire){
+    let cards;
+    if(!retire){
+      const tax=taxOnGains(accum.gains, p.envelope, p.accumYears);
+      const net=accum.final-tax, real=net/Math.pow(1+p.inflation,p.accumYears);
+      const growth=accum.contributed>0?(net/accum.contributed-1)*100:0;
+      cards=[
+        {cls:'final',label:'Capital final net',val:eur(net),sub:'net de frais & impôt'},
+        {cls:'contrib',label:'Total versé',val:eur(accum.contributed),sub:"effort d'épargne"},
+        {cls:'gains',label:'Plus-values',val:eur(accum.gains),sub:'+'+pct(growth)+' sur le versé'},
+        {cls:'tax',label:'Impôt estimé',val:eur(tax),sub:ENV[p.envelope].name+' · '+taxRateLabel(p.envelope,p.accumYears)},
+        {cls:'real',label:'Valeur réelle',val:eur(real),sub:"pouvoir d'achat d'aujourd'hui"},
+      ];
+    }else{
+      const netMonth=retire.firstYearNet/12;
+      const realMonth=netMonth/Math.pow(1+p.inflation,p.accumYears);
+      let durVal, durSub;
+      if(p.retMode==='target'){ durVal='jusqu\'à '+p.lifeExp+' ans'; durSub='capital épuisé, rien à transmettre'; }
+      else if(retire.depletionAge && retire.depletionAge<p.lifeExp){ durVal='épuisé à '+Math.floor(retire.depletionAge)+' ans'; durSub='avant '+p.lifeExp+' ans ⚠️'; }
+      else { durVal='à vie ✓'; durSub='capital préservé jusqu\'à '+p.lifeExp+' ans'; }
+      cards=[
+        {cls:'final',label:'Capital à la retraite',val:eur(accum.final),sub:'à '+p.ageRetire+' ans (avant impôt)'},
+        {cls:'gains',label:'Rente nette / mois',val:eur(netMonth),sub:p.indexRente?'1re année · indexée':'1re année · fixe'},
+        {cls:'real',label:'Rente réelle / mois',val:eur(realMonth),sub:"en pouvoir d'achat d'aujourd'hui"},
+        {cls:'contrib',label:'Durée de la rente',val:durVal,sub:durSub},
+        {cls:'legacy',label:'Capital transmis',val:eur(retire.residual),sub:'résiduel à '+p.lifeExp+' ans'},
+      ];
+    }
+    $('kpis').innerHTML=cards.map(c=>`
+      <div class="kpi ${c.cls}"><div class="bar"></div>
+        <div class="k-label">${c.label}</div>
+        <div class="k-val">${c.val}</div>
+        <div class="k-sub">${c.sub}</div>
+      </div>`).join('');
+  }
+
+  // ---------- chart ----------
+  function niceMax(v){
+    if(v<=0) return 1000;
+    const mag=Math.pow(10,Math.floor(Math.log10(v))), n=v/mag;
+    const step=n<=1?1:n<=2?2:n<=5?5:10;
+    return step*mag*1.02;
+  }
+  function fillBand(ctx,rows,X,Y,loFn,hiFn,fill){
+    ctx.beginPath();
+    rows.forEach((r,i)=>{const x=X(r.age),y=Y(hiFn(r));i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    for(let i=rows.length-1;i>=0;i--){const r=rows[i];ctx.lineTo(X(r.age),Y(loFn(r)));}
+    ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+  }
+  function strokeLine(ctx,rows,X,Y,fn,color,w){
+    ctx.beginPath();
+    rows.forEach((r,i)=>{const x=X(r.age),y=Y(fn(r));i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    ctx.strokeStyle=color;ctx.lineWidth=w;ctx.lineJoin='round';ctx.stroke();
+  }
+
+  function renderChart(p, accum, retire, timeline){
+    const cv=$('chart');
+    const dpr=window.devicePixelRatio||1;
+    const cssW=cv.clientWidth||cv.parentElement.clientWidth-32, cssH=360;
+    cv.width=cssW*dpr; cv.height=cssH*dpr; cv.style.height=cssH+'px';
+    const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+
+    const padL=58,padR=16,padT=18,padB=28;
+    const plotW=cssW-padL-padR, plotH=cssH-padT-padB;
+
+    let mode, series=null, maxY;
+    if(retire){ mode='retire'; }
+    else if(p.compare){ mode='compare'; }
+    else { mode='stack'; }
+
+    const ageMin=p.ageNow;
+    const ageMax = mode==='retire' ? p.lifeExp : p.ageRetire;
+    const span=Math.max(1, ageMax-ageMin);
+    const X=a=>padL+((a-ageMin)/span)*plotW;
+
+    if(mode==='retire'){
+      maxY=niceMax(Math.max(...timeline.map(r=>r.balance)));
+    }else if(mode==='compare'){
+      const pess=simulate(p,p.rPess), opt=simulate(p,p.rOpt);
+      const addAge=s=>s.rows.map(r=>({age:p.ageNow+r.year,balance:r.balance}));
+      series=[
+        {label:'Pessimiste ('+pct(p.rPess*100)+')',color:'#f43f5e',rows:addAge(pess),final:pess.final},
+        {label:'Central ('+pct(p.annualReturn*100)+')',color:'#8b5cf6',rows:addAge(accum),final:accum.final},
+        {label:'Optimiste ('+pct(p.rOpt*100)+')',color:'#10b981',rows:addAge(opt),final:opt.final},
+      ];
+      maxY=niceMax(Math.max(...series.map(s=>s.final)));
+    }else{
+      maxY=niceMax(accum.final);
+    }
+    const Y=v=>padT+plotH-(v/maxY)*plotH;
+
+    // grid + y labels
+    ctx.font='11px Inter, sans-serif'; ctx.textBaseline='middle';
+    for(let i=0;i<=5;i++){
+      const v=maxY*i/5, yy=Y(v);
+      ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(padL,yy);ctx.lineTo(cssW-padR,yy);ctx.stroke();
+      ctx.fillStyle='#9aa3d0';ctx.textAlign='right';ctx.fillText(shortEur(v),padL-8,yy);
+    }
+    // x labels (ages)
+    ctx.textAlign='center';ctx.textBaseline='top';
+    const step= span<=15?2:span<=32?5:10;
+    for(let a=ageMin;a<ageMax;a+=step){
+      ctx.fillStyle='#9aa3d0';ctx.fillText(a+' ans',X(a),cssH-padB+8);
+    }
+    ctx.fillText(ageMax+' ans',X(ageMax),cssH-padB+8);
+
+    const baseY=Y(0);
+    if(mode==='stack'){
+      const rows=timeline;
+      const g=ctx.createLinearGradient(0,padT,0,padT+plotH);g.addColorStop(0,'rgba(16,185,129,.55)');g.addColorStop(1,'rgba(16,185,129,.05)');
+      fillBand(ctx,rows,X,Y,r=>r.contributed,r=>r.balance,g);
+      const c=ctx.createLinearGradient(0,padT,0,padT+plotH);c.addColorStop(0,'rgba(56,189,248,.5)');c.addColorStop(1,'rgba(56,189,248,.08)');
+      fillBand(ctx,rows,X,Y,()=>0,r=>r.contributed,c);
+      strokeLine(ctx,rows,X,Y,r=>r.balance,'#10b981',2.5);
+      strokeLine(ctx,rows,X,Y,r=>r.contributed,'#38bdf8',2);
+      $('chartTitle').textContent='Évolution du portefeuille';
+      $('legend').innerHTML='<span><i class="dot" style="background:#38bdf8"></i>Versements cumulés</span><span><i class="dot" style="background:#10b981"></i>Plus-values</span>';
+    }else if(mode==='compare'){
+      series.forEach(s=>strokeLine(ctx,s.rows,X,Y,r=>r.balance,s.color,2.5));
+      $('chartTitle').textContent='Comparaison de scénarios';
+      $('legend').innerHTML=series.map(s=>`<span><i class="dot" style="background:${s.color}"></i>${s.label} → ${shortEur(s.final)}</span>`).join('');
+    }else{ // retire
+      const acc=timeline.filter(r=>r.phase==='accum');
+      const ret=timeline.filter(r=>r.phase==='ret');
+      const bridge=acc.length?[acc[acc.length-1]].concat(ret):ret; // continuous
+      const ga=ctx.createLinearGradient(0,padT,0,padT+plotH);ga.addColorStop(0,'rgba(99,102,241,.5)');ga.addColorStop(1,'rgba(99,102,241,.05)');
+      fillBand(ctx,acc,X,Y,()=>0,r=>r.balance,ga);
+      const gr=ctx.createLinearGradient(0,padT,0,padT+plotH);gr.addColorStop(0,'rgba(245,158,11,.5)');gr.addColorStop(1,'rgba(245,158,11,.05)');
+      fillBand(ctx,bridge,X,Y,()=>0,r=>r.balance,gr);
+      strokeLine(ctx,acc,X,Y,r=>r.balance,'#818cf8',2.5);
+      strokeLine(ctx,bridge,X,Y,r=>r.balance,'#f59e0b',2.5);
+      // retirement marker
+      const xr=X(p.ageRetire);
+      ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+      ctx.beginPath();ctx.moveTo(xr,padT);ctx.lineTo(xr,padT+plotH);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#f59e0b';ctx.textAlign='center';ctx.textBaseline='top';ctx.font='11px Inter';
+      ctx.fillText('🏖️ '+p.ageRetire+' ans',xr,padT+2);
+      $('chartTitle').textContent='Accumulation puis rente';
+      $('legend').innerHTML='<span><i class="dot" style="background:#818cf8"></i>Accumulation</span><span><i class="dot" style="background:#f59e0b"></i>Rente (décumulation)</span>';
+    }
+
+    chartData={mode,timeline,series,X,ageMin,ageMax,span,padL,padR,padT,padB,plotW,plotH,cssW,cssH,p};
+  }
+
+  // ---------- tooltip ----------
+  const tip=$('tooltip');
+  $('chart').addEventListener('mousemove',e=>{
+    if(!chartData) return;
+    const d=chartData, rect=e.target.getBoundingClientRect(), mx=e.clientX-rect.left;
+    if(mx<d.padL||mx>d.cssW-d.padR){tip.style.opacity=0;return;}
+    const age=d.ageMin+(mx-d.padL)/d.plotW*d.span;
+    let html='';
+    if(d.mode==='compare'){
+      const yr=Math.round(age-d.ageMin);
+      html=`<b>${Math.round(age)} ans</b>`;
+      d.series.forEach(s=>{const r=s.rows[Math.max(0,Math.min(s.rows.length-1,yr))];html+=`<br><span style="color:${s.color}">■</span> ${eur(r.balance)}`;});
+    }else{
+      let best=d.timeline[0],bd=1e9;
+      d.timeline.forEach(r=>{const dd=Math.abs(r.age-age);if(dd<bd){bd=dd;best=r;}});
+      html=`<b>${Math.round(best.age)} ans</b> · ${best.phase==='ret'?'retraite':'épargne'}<br>Valeur : <b>${eur(best.balance)}</b>`;
+      if(best.phase==='accum') html+=`<br>Versé : ${eur(best.contributed)}<br>Plus-values : <span style="color:#10b981">${eur(best.gains)}</span>`;
+      else html+=`<br>Rente nette/an : <span style="color:#f59e0b">${eur(-best.flow)}</span>`;
+    }
+    tip.innerHTML=html; tip.style.opacity=1;
+    const tx=Math.min(d.cssW-tip.offsetWidth-8, d.X(Math.round(age))+12);
+    tip.style.left=Math.max(8,tx)+'px'; tip.style.top=(d.padT+8)+'px';
+  });
+  $('chart').addEventListener('mouseleave',()=>tip.style.opacity=0);
+
+  // ---------- advice ----------
+  function renderAdvice(p, accum, retire, objInfo){
+    const A = retire ? adviceRetire(p,accum,retire) : adviceAccum(p,accum);
+    if(objInfo){
+      const per={monthly:'mois',quarterly:'trimestre',annual:'an'}[p.freq];
+      const goal = objInfo.objType==='rente'
+        ? `une rente nette de <b>${eur(objInfo.target)}/mois</b> jusqu'à ${p.lifeExp} ans`
+        : `un capital de <b>${eur(objInfo.target)}</b> à ${p.ageRetire} ans`;
+      A.unshift({t:'reco',i:'🎯',h:'Versement à réaliser',
+        x:`Pour viser ${goal}, tu dois verser <b>${eur(objInfo.req)} par ${per}</b>${p.indexContrib?" (indexé sur l'inflation)":''} pendant ${p.accumYears} ans.`});
+    }
+    $('advice').innerHTML=A.map(a=>`<div class="advice ${a.t}"><span class="ico">${a.i}</span><b>${a.h}</b><br>${a.x}</div>`).join('');
+  }
+
+  function adviceAccum(p, s){
+    const A=[], gains=s.gains, contributed=s.contributed, y=p.accumYears;
+    const tax=taxOnGains(gains,p.envelope,y);
+    const scored=['pea','av','cto'].map(e=>({e,net:s.final-taxOnGains(gains,e,y)})).sort((a,b)=>b.net-a.net);
+    const best=scored[0], cur=scored.find(z=>z.e===p.envelope);
+    if(p.envelope!=='none'){
+      if(best.e===p.envelope) A.push({t:'reco',i:'🏆',h:"Bon choix d'enveloppe",x:`Sur ${y} ans, le <b>${ENV[best.e].name}</b> est le plus avantageux fiscalement ici (il laisse le plus net : ${eur(best.net)}).`});
+      else A.push({t:'reco',i:'💡',h:'Enveloppe plus avantageuse',x:`Sur ${y} ans, le <b>${ENV[best.e].name}</b> te laisserait <b>${eur(best.net-(cur?cur.net:s.final-tax))}</b> de plus net que le ${ENV[p.envelope].name}.`});
+    }else A.push({t:'info',i:'🧭',h:"Pense à l'enveloppe fiscale",x:`Tu simules sans fiscalité. Loger tes ETF dans un <b>PEA</b> (exonéré d'IR après 5 ans) peut éviter des milliers d'euros d'impôt.`});
+    if(p.envelope==='pea'&&y<5) A.push({t:'warn',i:'⏳',h:'PEA : attends 5 ans',x:`Un retrait avant <b>5 ans</b> clôture le PEA et fait perdre l'avantage fiscal.`});
+    if(p.envelope==='av'&&y<8) A.push({t:'warn',i:'⏳',h:'Assurance-vie : cap sur 8 ans',x:`L'abattement de 4 600 €/an et le taux réduit ne s'appliquent qu'<b>après 8 ans</b>.`});
+    if(p.envelope==='pea'&&contributed>150000) A.push({t:'warn',i:'🚧',h:'Plafond du PEA',x:`Tes versements (${eur(contributed)}) dépassent le plafond de <b>150 000 €</b> du PEA.`});
+    if(p.ter+p.envfee>0){
+      const t=(p.ter+p.envfee)>0.007?'warn':'info';
+      A.push({t,i:t==='warn'?'💸':'🧾',h:'Poids des frais',x:`À ${pct((p.ter+p.envfee)*100)}/an, tu paieras ~<b>${eur(s.feeCost)}</b> de frais sur ${y} ans. ${(p.ter+p.envfee)>0.007?'Un ETF indiciel large affiche souvent un TER < 0,25 %.':"Niveau compétitif, typique d'un ETF indiciel."}`});
+    }
+    const cross=s.rows.find(r=>r.gains>r.contributed);
+    if(cross) A.push({t:'good',i:'🚀',h:'Les intérêts prennent le relais',x:`À l'<b>âge ${Math.round(cross.age)} ans</b>, tes plus-values dépassent tes versements : les intérêts composés travaillent plus que toi.`});
+    else A.push({t:'info',i:'🌱',h:'Laisse le temps agir',x:`Sur cet horizon, tes versements restent supérieurs aux plus-values. Allonger la durée décuplerait l'effet des intérêts composés.`});
+    if(p.inflation>0){
+      const net=s.final-tax, real=net/Math.pow(1+p.inflation,y);
+      A.push({t:'info',i:'📉',h:"Effet de l'inflation",x:`À ${pct(p.inflation*100)}, ${eur(net)} vaudront <b>${eur(real)}</b> en pouvoir d'achat d'aujourd'hui. ${!p.indexContrib?"Indexer tes versements aide à compenser.":'Tes versements indexés compensent en partie.'}`});
+    }
+    return A;
+  }
+
+  function adviceRetire(p, accum, r){
+    const A=[], rate=accum.final>0?r.firstMonthGross*12/accum.final*100:0;
+    // withdrawal rate
+    if(p.retMode==='target') A.push({t:'reco',i:'🎯',h:'Rente soutenable',x:`La rente qui épuise le capital à ${p.lifeExp} ans correspond à un taux de retrait initial de <b>${pct(rate)}</b>. ${rate<=4?'Sous la barre des 4 % : marge raisonnable.':'Au-dessus de 4 % : sensible aux mauvaises années de marché.'}`});
+    else A.push({t: rate<=4?'good':'warn', i: rate<=4?'📊':'⚠️', h:'Taux de retrait', x:`Tu retires environ <b>${pct(rate)}</b> du capital par an. ${rate<=4?'La règle des 4 % suggère que c\'est durable sur le long terme.':'C\'est au-dessus de la règle des 4 % : risque d\'épuiser le capital plus tôt que prévu.'}`});
+    // longevity / depletion
+    if(p.retMode==='target') A.push({t:'info',i:'⚖️',h:'Aucune marge',x:`La rente est calibrée pour tout consommer d'ici ${p.lifeExp} ans : il ne reste rien à transmettre. Vivre plus longtemps que prévu épuiserait le capital.`});
+    else if(r.depletionAge && r.depletionAge<p.lifeExp) A.push({t:'warn',i:'🕳️',h:'Épuisement anticipé',x:`À ce rythme, le capital serait épuisé vers <b>${Math.floor(r.depletionAge)} ans</b>, soit ${p.lifeExp-Math.floor(r.depletionAge)} ans avant ton espérance de vie. Réduis la rente, épargne plus longtemps ou vise un meilleur rendement.`});
+    else A.push({t:'good',i:'🛟',h:'Capital préservé',x:`Le capital n'est pas épuisé : il resterait ~<b>${eur(r.residual)}</b> à ${p.lifeExp} ans, transmissible à tes héritiers.`});
+    // envelope for rente
+    if(p.envelope==='av') A.push({t:'good',i:'🏆',h:'AV idéale pour la rente',x:`L'assurance-vie est parfaite en décumulation : <b>4 600 €/an</b> de plus-values exonérés après 8 ans, et fiscalité douce (7,5 % + PS) au-delà.`});
+    else if(p.envelope==='pea') A.push({t:'info',i:'🔓',h:'PEA en phase de rente',x:`Après 5 ans, chaque retrait n'est taxé qu'à <b>17,2 %</b> sur la part de plus-value. Une sortie en rente viagère peut même être exonérée d'IR.`});
+    else if(p.envelope==='cto') A.push({t:'warn',i:'💸',h:'CTO : retraits taxés à 30 %',x:`Chaque retrait est taxé à <b>30 %</b> sur la part de plus-value. Une <b>assurance-vie</b> serait nettement plus douce pour servir une rente.`});
+    else A.push({t:'info',i:'🧭',h:'Choisis une enveloppe',x:`Sans enveloppe, aucun cadre fiscal favorable pour la rente. L'assurance-vie ou le PEA réduiraient l'impôt sur les retraits.`});
+    // indexation
+    if(!p.indexRente){
+      const loss=(1-1/Math.pow(1+p.inflation,p.retYears))*100;
+      A.push({t:'warn',i:'📉',h:'Rente non indexée',x:`À ${pct(p.inflation*100)} d'inflation, une rente fixe perd ~<b>${pct(loss)}</b> de pouvoir d'achat sur ${p.retYears} ans. Active l'indexation pour maintenir ton niveau de vie.`});
+    }else A.push({t:'info',i:'🛡️',h:'Rente indexée',x:`Ta rente suit l'inflation : ton pouvoir d'achat est préservé, mais le capital s'épuise plus vite (retraits croissants).`});
+    // sequence risk
+    if(p.retReturn>=0.06) A.push({t:'warn',i:'🎢',h:'Risque de séquence',x:`Un rendement de ${pct(p.retReturn*100)} en phase de retrait suppose de rester très exposé aux actions. Une forte baisse en début de retraite peut fortement raccourcir la durée — beaucoup sécurisent une poche de liquidités (2-3 ans de rente).`});
+    return A;
+  }
+
+  // ---------- table ----------
+  function renderTable(p, timeline){
+    const tb=$('table').querySelector('tbody');
+    tb.innerHTML=timeline.map(r=>{
+      const real=r.balance/Math.pow(1+p.inflation, r.age-p.ageNow);
+      const flowCls=r.flow>=0?'pos':'neg';
+      const flowStr=(r.flow>=0?'+':'−')+eur(Math.abs(r.flow));
+      return `<tr class="${r.phase==='ret'?'ret':''}">
+        <td>${Math.round(r.age)} ans <span class="phasetag">${r.phase==='ret'?'rente':''}</span></td>
+        <td class="${flowCls}">${flowStr}</td>
+        <td>${eur(r.gains)}</td>
+        <td>${eur(r.balance)}</td>
+        <td>${eur(real)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ---------- URL persistence ----------
+  const NUMK=['initial','contribution','return','inflation','ter','envfee','ageNow','ageRetire','lifeExp','rPess','rOpt','retReturn','retFixed','retRate'];
+  function syncURL(p){
+    const q=new URLSearchParams();
+    NUMK.forEach(k=>q.set(k,$(k).value));
+    q.set('freq',state.freq); q.set('env',p.envelope);
+    q.set('idx',p.indexContrib?1:0); q.set('cmp',p.compare?1:0);
+    q.set('rente',p.renteOn?1:0); q.set('rmode',state.retMode); q.set('idxr',p.indexRente?1:0);
+    q.set('obj',$('objInv').checked?1:0); q.set('otype',$('objType').value); q.set('otgt',$('objTarget').value);
+    try{ history.replaceState(null,'','?'+q.toString()); }catch(_){/* file:// ou navigation restreinte */}
+  }
+  function loadURL(){
+    const q=new URLSearchParams(location.search);
+    if(![...q.keys()].length) return;
+    NUMK.forEach(k=>{ if(q.has(k)) $(k).value=q.get(k); });
+    // valeurs whitelistées : un paramètre inconnu est ignoré (évite crash ou calculs faux)
+    if(ENV[q.get('env')]) $('envelope').value=q.get('env');
+    if(q.has('idx')) $('indexContrib').checked=q.get('idx')==='1';
+    if(q.has('cmp')) $('compareMode').checked=q.get('cmp')==='1';
+    if(q.has('rente')) $('renteOn').checked=q.get('rente')==='1';
+    if(q.has('idxr')) $('indexRente').checked=q.get('idxr')==='1';
+    if(q.has('obj')) $('objInv').checked=q.get('obj')==='1';
+    if(['capital','rente'].includes(q.get('otype'))) $('objType').value=q.get('otype');
+    if(q.has('otgt')) $('objTarget').value=q.get('otgt');
+    if(freqMonths[q.get('freq')]){ state.freq=q.get('freq'); setSeg('freqSeg','freq',state.freq); }
+    if(['target','fixed','rate'].includes(q.get('rmode'))){ state.retMode=q.get('rmode'); setSeg('retModeSeg','mode',state.retMode); }
+  }
+  function setSeg(segId,attr,val){ [...$(segId).children].forEach(b=>b.classList.toggle('active',b.dataset[attr]===val)); }
+
+  // ---------- events ----------
+  document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',render));
+  $('freqSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.freq=b.dataset.freq;setSeg('freqSeg','freq',state.freq);render();});
+  $('retModeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.retMode=b.dataset.mode;setSeg('retModeSeg','mode',state.retMode);render();});
+  // aide contextuelle : ouvre/ferme l'encart détaillé d'un champ
+  document.addEventListener('click',e=>{
+    const b=e.target&&e.target.closest?e.target.closest('.help-btn'):null; if(!b)return;
+    e.preventDefault(); // évite de déclencher le label parent (switches)
+    const d=$(b.getAttribute('aria-controls')); if(!d||!d.classList)return;
+    const open=!d.classList.contains('open');
+    d.classList.toggle('open',open); b.setAttribute('aria-expanded',open);
+  });
+  $('resetBtn').addEventListener('click',()=>{try{history.replaceState(null,'',location.pathname);}catch(_){}location.reload();});
+  $('shareBtn').addEventListener('click',async()=>{
+    try{ await navigator.clipboard.writeText(location.href); $('shareBtn').textContent='Lien copié ✓'; setTimeout(()=>$('shareBtn').textContent='Copier le lien',1600); }
+    catch(_){ prompt('Copiez ce lien :',location.href); }
+  });
+  let resizeT; window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(render,150);});
+
+  // ---------- init ----------
+  loadURL();
+  render();
+})();
+</script>
+</body>
+</html>
